@@ -1,78 +1,82 @@
-#include <string>
 #include <iostream>
 #include <fstream>
+#include <string>
+#include <sstream>
 
-static int open_files(std::string nameInputFile, std::string nameOutputfile,
-					std::ifstream *inputFile, std::ofstream *outputFile)
+std::string replaceText(std::string content, std::string s1, std::string s2)
 {
-	(*inputFile).open(nameInputFile, std::fstream::in);
-	(*outputFile).open(nameOutputfile, std::fstream::out);
-	if (!inputFile || !outputFile)
-	{
-        std::cerr << "Failed to open files!" << std::endl;
-		(*inputFile).close();
-		(*outputFile).close();
+    size_t pos;
+    size_t found;
+    std::string result;
 
-        return (1);
+    pos = 0;
+    while ((found = content.find(s1, pos)) != std::string::npos)
+    {
+        result += content.substr(pos, found - pos);
+        result += s2;
+        pos = found + s1.length();
     }
-	return (0);
-}
+    result += content.substr(pos);
 
-static void read_and_replace(char **argv, std::ifstream *inputFile, std::ofstream *outputFile)
-{
-	std::string 			to_find;
-	std::string 			to_replace;
-	std::string 			line;
-	std::string::size_type	found;
-	size_t					end_last_found;
-	std::string				replaced_line;
-
-	to_find = *(argv + 2);
-	to_replace = *(argv + 3);
-	end_last_found = 0;
-
-	while(std::getline(*inputFile, line))
-	{
-		
-		replaced_line.clear();
-		end_last_found = 0;
-		found = line.find(to_find);
-		if (found != std::string::npos)
-		{
-			while (found != std::string::npos)
-			{
-				replaced_line.append(line,end_last_found,found - end_last_found);
-				replaced_line += to_replace;
-				end_last_found = found + to_find.length();
-				found = line.find(to_find, end_last_found);
-				if (found == std::string::npos)
-					replaced_line.append(line, end_last_found,line.length());
-			}
-		}
-		else
-			replaced_line = line;
-		if (!(*inputFile).eof())
-			*outputFile << replaced_line << std::endl;
-		else
-			*outputFile << replaced_line;
-	}
+    return result;
 }
 
 int main(int argc, char **argv)
 {
-	std::string nameInputFile;
-	std::string nameOutputfile;
-	std::ifstream inputFile;
-	std::ofstream outputFile;
+    if (argc != 4)
+    {
+        std::cerr << "Error: wrong number of arguments." << std::endl;
+        std::cerr << "Usage: ./sed <filename> <s1> <s2>" << std::endl;
+        return 1;
+    }
 
-	if (argc != 4)
-		return (std::cout << "Wrong number of arguments" << std::endl, 0);
-	nameInputFile = argv[1];
-	nameOutputfile = nameOutputfile + argv[1] + ".replace";
-	if (open_files(nameInputFile, nameOutputfile, &inputFile, &outputFile))
-		return (1);
-	read_and_replace(argv, &inputFile, &outputFile);
-	inputFile.close();
-	outputFile.close();
-	return (0);
+    std::string filename = argv[1];
+    std::string s1 = argv[2];
+    std::string s2 = argv[3];
+
+    if (s1.empty())
+    {
+        std::cerr << "Error: s1 cannot be empty." << std::endl;
+        return 1;
+    }
+
+    std::ifstream inputFile(filename);
+
+    if (!inputFile)
+    {
+        std::cerr << "Error: could not open input file." << std::endl;
+        return 1;
+    }
+
+    std::ostringstream buffer; //objeto que nos permite acumular texto
+    buffer << inputFile.rdbuf(); //nos permite acceder al stream buffer asociado al archivo
+
+    std::string content = buffer.str();
+
+    inputFile.close();
+
+    content = replaceText(content, s1, s2);
+
+    std::ofstream outputFile(filename + ".replace");
+
+    if (!outputFile)
+    {
+        std::cerr << "Error: could not create output file." << std::endl;
+        return 1;
+    }
+
+    outputFile << content;
+
+    if (!outputFile)
+    {
+        std::cerr << "Error: could not write to output file." << std::endl;
+        return 1;
+    }
+
+    outputFile.close();
+
+    std::cout << "File successfully created: "
+              << filename + ".replace" << std::endl;
+
+    return 0;
 }
